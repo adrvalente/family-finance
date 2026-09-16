@@ -1,0 +1,72 @@
+# ==========================================================
+# Family Finance
+# GitHub / Streamlit Cloud
+# ==========================================================
+
+# --- Credenciais e configuração privada ---
+.env
+.env.*
+!.env.example
+secrets.toml
+.streamlit/secrets.toml
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# --- Ambientes virtuais ---
+venv/
+.venv/
+env/
+ENV/
+
+# --- Backups / versões antigas ---
+*_backup.py
+*_before_*.py
+*.bak
+*.backup
+*.old
+
+# --- Scripts temporários de atualização/hotfix ---
+apply_*.py
+
+# --- Base de dados / dumps ---
+*.sql
+*.db
+*.sqlite
+*.sqlite3
+
+# --- Backups compactados ---
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+*.7z
+
+# --- Uploads e documentos privados ---
+uploads/
+documents/
+storage/
+data/private/
+backups/
+
+# --- Logs e temporários ---
+*.log
+logs/
+tmp/
+temp/
+*.tmp
+
+# --- Sistema / IDE ---
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# --- Streamlit local ---
+.streamlit/secrets.toml
+requirements_full.txt

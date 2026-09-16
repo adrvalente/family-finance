@@ -1,0 +1,13 @@
+# Family Finance V3.3 — Design Tokens
+Primary      #0B4F9C
+Success      #159A78
+Warning      #E6A23C
+Danger       #D9534F
+Info         #2798C7
+Background   #F5F8FB
+Surface      #FFFFFF
+Text         #17324D
+Muted        #6B7C8F
+Teal         #0E8F84
+Green        #22A879
+Border       #DDE6EE
