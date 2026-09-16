@@ -37,7 +37,7 @@ from db import (
     get_expense_history_monthly, get_expenses_by_category, get_fixed_variable_expenses,
     get_financial_history, get_income_categories,
     get_income_history_monthly, get_month_comparison, get_month_summary,
-    get_monthly_expense_total, get_monthly_income_total, get_system_stats,
+    get_monthly_expense_total, get_monthly_income_total, get_system_stats, get_database_environment, get_database_environment,
     get_top_expense_categories, get_top_suppliers, get_user_by_username,
     list_documents, list_expense_occurrences, list_expenses, list_expenses_for_document_link, list_households, list_income_occurrences,
     list_incomes, list_users, list_users_by_household, log_action,
@@ -85,20 +85,52 @@ def refresh_session_user():
             })
 
 def page_login():
-    render_brand_header("Family Finance", "As finanças da família, num só lugar.")
-    st.caption("V3.3 — Design System + identidade visual oficial")
-    c1,c2,c3 = st.columns([1,1.2,1])
+    # Segurança adicional:
+    # nunca renderizar o formulário se a sessão já estiver autenticada.
+    if st.session_state.get("authenticated", False):
+        return
+
+    render_brand_header(
+        "Family Finance",
+        "As finanças da família, num só lugar."
+    )
+
+    st.caption("V3.3.3 — Cloud Stabilization")
+
+    c1, c2, c3 = st.columns([1, 1.2, 1])
+
     with c2:
         st.subheader("Iniciar sessão")
-        with st.form("login_form"):
-            username = st.text_input("Utilizador")
-            password = st.text_input("Palavra-passe",type="password")
-            submit = st.form_submit_button("Entrar",use_container_width=True)
+
+        with st.form("login_form", clear_on_submit=False):
+            username = st.text_input(
+                "Utilizador",
+                key="login_username"
+            )
+
+            password = st.text_input(
+                "Palavra-passe",
+                type="password",
+                key="login_password"
+            )
+
+            submit = st.form_submit_button(
+                "Entrar",
+                use_container_width=True
+            )
+
         if submit:
-            ok,err = login(username,password)
+            ok, err = login(username, password)
+
             if ok:
+                # Remove valores do formulário antes do rerun.
+                st.session_state.pop("login_username", None)
+                st.session_state.pop("login_password", None)
+
                 st.rerun()
-            st.error(err)
+
+            else:
+                st.error(err)
 
 def sidebar():
     refresh_session_user()
@@ -119,7 +151,7 @@ def sidebar():
         if st.button("Terminar sessão",use_container_width=True):
             logout()
             st.rerun()
-        st.caption("Family Finance V3.3.1")
+        st.caption("Family Finance V3.3.3")
     return page
 
 def require_household():
@@ -136,7 +168,7 @@ def require_household():
 def page_executive_dashboard():
     household_id = require_household()
     st.title("🏠 Dashboard Executivo Familiar")
-    st.caption("V3.3.1 — visão global com Family Finance Design System")
+    st.caption("V3.3.3 — Cloud Stabilization + Family Finance Design System")
 
     today = date.today()
     c1,c2,c3 = st.columns([1,1,1])
@@ -4592,58 +4624,176 @@ def page_households():
 
 def page_system():
     require_admin()
+
     st.title("🛠 Sistema")
+    st.caption("Diagnóstico da aplicação, base de dados e ambiente de execução.")
+
     try:
+        # --------------------------------------------------
+        # Diagnóstico
+        # --------------------------------------------------
         info = test_connection()
         stats = get_system_stats()
-        st.success(f"MariaDB ligado — BD: **{info['db_name']}** | Servidor: **{info['version']}**")
-        a,b,c,d,e,f,g,h = st.columns(8)
-        a.metric("Utilizadores",stats["users"])
-        b.metric("Agregados",stats["households"])
-        c.metric("Rendimentos",stats["incomes"])
-        d.metric("Despesas",stats["expenses"])
-        e.metric("Documentos",stats["documents"])
-        f.metric("Categorias",stats["categories"])
-        g.metric("Configurações",stats["settings"])
-        h.metric("Migrações",stats["migrations"])
-        st.subheader("Categorias")
-        st.dataframe(pd.DataFrame(get_categories()),use_container_width=True,hide_index=True)
-        with st.expander("Informação técnica"):
-            st.code(f"""Aplicação: {APP_NAME}
-Versão: 3.1
-Ambiente: {APP_ENV}
+        db_environment = get_database_environment()
+
+        version = str(info.get("version") or "")
+        database_name = str(info.get("db_name") or "—")
+
+        if "MariaDB" in version:
+            database_engine = "MariaDB"
+        elif version:
+            database_engine = "MySQL"
+        else:
+            database_engine = "Desconhecido"
+
+        if db_environment == "CLOUD":
+            environment_icon = "☁️"
+            environment_label = "CLOUD"
+        else:
+            environment_icon = "🖥️"
+            environment_label = "LOCAL"
+
+        # --------------------------------------------------
+        # Estado da ligação
+        # --------------------------------------------------
+        st.success(
+            f"✅ Base de dados ligada — "
+            f"{environment_icon} **{environment_label}** | "
+            f"**{database_engine}** | "
+            f"BD: **{database_name}**"
+        )
+
+        # --------------------------------------------------
+        # Informação principal
+        # --------------------------------------------------
+        c1, c2, c3, c4 = st.columns(4)
+
+        c1.metric(
+            "Ambiente",
+            f"{environment_icon} {environment_label}"
+        )
+
+        c2.metric(
+            "Motor BD",
+            database_engine
+        )
+
+        c3.metric(
+            "Base de dados",
+            database_name
+        )
+
+        c4.metric(
+            "Estado",
+            "Online"
+        )
+
+        st.caption(f"Servidor de base de dados: {version}")
+
+        st.divider()
+
+        # --------------------------------------------------
+        # Estatísticas
+        # --------------------------------------------------
+        st.subheader("📊 Estatísticas do sistema")
+
+        a, b, c, d = st.columns(4)
+
+        a.metric("Utilizadores", stats["users"])
+        b.metric("Agregados", stats["households"])
+        c.metric("Rendimentos", stats["incomes"])
+        d.metric("Despesas", stats["expenses"])
+
+        e, f, g, h = st.columns(4)
+
+        e.metric("Documentos", stats["documents"])
+        f.metric("Categorias", stats["categories"])
+        g.metric("Configurações", stats["settings"])
+        h.metric("Migrações", stats["migrations"])
+
+        st.divider()
+
+        # --------------------------------------------------
+        # Categorias
+        # --------------------------------------------------
+        st.subheader("📁 Categorias")
+
+        st.dataframe(
+            pd.DataFrame(get_categories()),
+            use_container_width=True,
+            hide_index=True
+        )
+
+        # --------------------------------------------------
+        # Informação técnica
+        # --------------------------------------------------
+        with st.expander("⚙️ Informação técnica"):
+
+            st.code(
+                f"""Aplicação: {APP_NAME}
+Versão: 3.3.3
+Ambiente da aplicação: {APP_ENV}
+Ambiente da base de dados: {environment_label}
+Motor da base de dados: {database_engine}
+Base de dados: {database_name}
+Servidor BD: {version}
 Python: {platform.python_version()}
 Sistema: {platform.system()} {platform.release()}
-Data/Hora: {datetime.now().strftime("%d/%m/%Y %H:%M:%S")}""")
-    except Exception as e:
-        st.error("Erro de ligação à base de dados.")
-        st.code(str(e))
+Data/Hora: {datetime.now().strftime("%d/%m/%Y %H:%M:%S")}"""
+            )
 
-if not st.session_state.authenticated:
+            st.caption(
+                "Por segurança, host, utilizador e credenciais da base de dados "
+                "não são apresentados."
+            )
+
+    except Exception as e:
+
+        st.error("❌ Erro de ligação à base de dados.")
+
+        with st.expander("Detalhes técnicos"):
+            st.code(str(e))
+
+
+# ==========================================================
+# FAMILY FINANCE V3.3.3
+# Router principal da aplicação
+# ==========================================================
+
+if not st.session_state.get("authenticated", False):
     page_login()
+
 else:
     p = sidebar()
-    {
-        "Executivo":page_executive_dashboard,
-        "Ações":page_financial_actions,
-        "Dashboard":page_dashboard,
-        "Rendimentos":page_incomes,
-        "Despesas":page_expenses,
-        "Documentos":page_documents,
-        "Orçamentos":page_budgets,
-        "Planeamento":page_planning,
-        "Calendário":page_financial_calendar,
-        "Cenários":page_scenarios,
-        "Risco":page_risk,
-        "Mercado":page_market,
-        "Contratos":page_contracts,
-        "Assistente":page_financial_assistant,
-        "Plano":page_financial_plan,
-        "Hábitos":page_financial_habits,
-        "Notificações":page_notifications,
-        "Metas":page_goals,
-        "O meu perfil":page_profile,
-        "Utilizadores":page_users,
-        "Agregados":page_households,
-        "Sistema":page_system
-    }[p]()
+
+    pages = {
+        "Executivo": page_executive_dashboard,
+        "Ações": page_financial_actions,
+        "Dashboard": page_dashboard,
+        "Rendimentos": page_incomes,
+        "Despesas": page_expenses,
+        "Documentos": page_documents,
+        "Orçamentos": page_budgets,
+        "Planeamento": page_planning,
+        "Calendário": page_financial_calendar,
+        "Cenários": page_scenarios,
+        "Risco": page_risk,
+        "Mercado": page_market,
+        "Contratos": page_contracts,
+        "Assistente": page_financial_assistant,
+        "Plano": page_financial_plan,
+        "Hábitos": page_financial_habits,
+        "Notificações": page_notifications,
+        "Metas": page_goals,
+        "O meu perfil": page_profile,
+        "Utilizadores": page_users,
+        "Agregados": page_households,
+        "Sistema": page_system,
+    }
+
+    page_function = pages.get(p)
+
+    if page_function:
+        page_function()
+    else:
+        st.error(f"Página desconhecida: {p}")

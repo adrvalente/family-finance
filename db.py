@@ -18,22 +18,44 @@ from dotenv import load_dotenv
 #   st.secrets["database"] -> Aiven MySQL
 # ==========================================================
 
+# ==========================================================
+# FAMILY FINANCE V3.3.3
+# Database Environment Manager
+#
+# FF_DATABASE_MODE:
+#   local -> força .env / MariaDB local
+#   cloud -> força Streamlit Secrets / Aiven
+#   auto  -> Cloud se existirem secrets; caso contrário Local
+# ==========================================================
+
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-# Mantém compatibilidade com a instalação atual na VM.
 load_dotenv(os.path.join(BASE_DIR, ".env"))
+
+
+def _database_mode():
+    """
+    Devolve o modo de base de dados solicitado.
+
+    Valores válidos:
+        local
+        cloud
+        auto
+
+    Por defeito usa 'auto'.
+    """
+    mode = os.getenv("FF_DATABASE_MODE", "auto").strip().lower()
+
+    if mode not in ("local", "cloud", "auto"):
+        mode = "auto"
+
+    return mode
 
 
 def _streamlit_database_config():
     """
-    Tenta obter a configuração da BD através do Streamlit Secrets.
-
-    Retorna None quando:
-    - não estamos num ambiente Streamlit com secrets;
-    - não existe a secção [database];
-    - os secrets ainda não foram configurados.
-
-    Assim, a aplicação pode continuar a usar .env localmente.
+    Obtém a configuração Cloud através de Streamlit Secrets.
+    Nunca expõe credenciais.
     """
     try:
         import streamlit as st
@@ -69,19 +91,10 @@ def _streamlit_database_config():
         return None
 
 
-def get_config():
+def _local_database_config():
     """
-    Ordem de configuração:
-
-    1. Streamlit Secrets -> Cloud/Aiven
-    2. Variáveis de ambiente/.env -> VM/MariaDB
+    Configuração da MariaDB local através de .env.
     """
-
-    cloud_config = _streamlit_database_config()
-
-    if cloud_config:
-        return cloud_config
-
     return {
         "host": os.getenv("DB_HOST", "127.0.0.1"),
         "port": int(os.getenv("DB_PORT", "3306")),
@@ -95,6 +108,74 @@ def get_config():
         "read_timeout": 30,
         "write_timeout": 30,
     }
+
+
+def get_database_environment():
+    """
+    Informação segura sobre o ambiente atualmente selecionado.
+
+    Pode ser usada na página Sistema sem revelar
+    passwords, hosts ou utilizadores.
+    """
+    mode = _database_mode()
+    cloud_config = _streamlit_database_config()
+
+    if mode == "local":
+        return "LOCAL"
+
+    if mode == "cloud":
+        return "CLOUD"
+
+    # AUTO
+    return "CLOUD" if cloud_config else "LOCAL"
+
+
+def get_config():
+    """
+    Resolve a configuração efetiva da BD.
+
+    LOCAL:
+        força .env / MariaDB.
+
+    CLOUD:
+        exige [database] em Streamlit Secrets.
+
+    AUTO:
+        prefere Streamlit Secrets e usa .env como fallback.
+    """
+    mode = _database_mode()
+
+    if mode == "local":
+        return _local_database_config()
+
+    cloud_config = _streamlit_database_config()
+
+    if mode == "cloud":
+        if not cloud_config:
+            raise RuntimeError(
+                "FF_DATABASE_MODE=cloud, mas não existe uma configuração "
+                "[database] válida em Streamlit Secrets."
+            )
+
+        return cloud_config
+
+    # AUTO
+    if cloud_config:
+        return cloud_config
+
+    return _local_database_config()# ==========================================================
+# FAMILY FINANCE V3.3.3
+# Database Environment Manager
+#
+# FF_DATABASE_MODE:
+#   local -> força .env / MariaDB local
+#   cloud -> força Streamlit Secrets / Aiven
+#   auto  -> Cloud se existirem secrets; caso contrário Local
+# ==========================================================
+
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+load_dotenv(os.path.join(BASE_DIR, ".env"))
 
 
 @contextmanager
