@@ -1,15 +1,87 @@
-
 import os
 import json
 from contextlib import contextmanager
 from datetime import date, timedelta
+
 import pymysql
 from dotenv import load_dotenv
 
+
+# ==========================================================
+# FAMILY FINANCE
+# Configuração de Base de Dados
+#
+# Local / VM:
+#   .env -> MariaDB local
+#
+# Streamlit Community Cloud:
+#   st.secrets["database"] -> Aiven MySQL
+# ==========================================================
+
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+# Mantém compatibilidade com a instalação atual na VM.
 load_dotenv(os.path.join(BASE_DIR, ".env"))
 
+
+def _streamlit_database_config():
+    """
+    Tenta obter a configuração da BD através do Streamlit Secrets.
+
+    Retorna None quando:
+    - não estamos num ambiente Streamlit com secrets;
+    - não existe a secção [database];
+    - os secrets ainda não foram configurados.
+
+    Assim, a aplicação pode continuar a usar .env localmente.
+    """
+    try:
+        import streamlit as st
+
+        if "database" not in st.secrets:
+            return None
+
+        db = st.secrets["database"]
+
+        required = ("host", "port", "user", "password", "name")
+
+        if not all(key in db for key in required):
+            return None
+
+        return {
+            "host": str(db["host"]),
+            "port": int(db["port"]),
+            "user": str(db["user"]),
+            "password": str(db["password"]),
+            "database": str(db["name"]),
+            "ssl": {
+                "check_hostname": True
+            },
+            "charset": "utf8mb4",
+            "cursorclass": pymysql.cursors.DictCursor,
+            "autocommit": True,
+            "connect_timeout": 10,
+            "read_timeout": 30,
+            "write_timeout": 30,
+        }
+
+    except Exception:
+        return None
+
+
 def get_config():
+    """
+    Ordem de configuração:
+
+    1. Streamlit Secrets -> Cloud/Aiven
+    2. Variáveis de ambiente/.env -> VM/MariaDB
+    """
+
+    cloud_config = _streamlit_database_config()
+
+    if cloud_config:
+        return cloud_config
+
     return {
         "host": os.getenv("DB_HOST", "127.0.0.1"),
         "port": int(os.getenv("DB_PORT", "3306")),
@@ -19,15 +91,21 @@ def get_config():
         "charset": "utf8mb4",
         "cursorclass": pymysql.cursors.DictCursor,
         "autocommit": True,
+        "connect_timeout": 10,
+        "read_timeout": 30,
+        "write_timeout": 30,
     }
+
 
 @contextmanager
 def connection():
     conn = pymysql.connect(**get_config())
+
     try:
         yield conn
     finally:
         conn.close()
+
 
 def fetch_one(sql, params=None):
     with connection() as conn:
@@ -35,11 +113,13 @@ def fetch_one(sql, params=None):
             cur.execute(sql, params or ())
             return cur.fetchone()
 
+
 def fetch_all(sql, params=None):
     with connection() as conn:
         with conn.cursor() as cur:
             cur.execute(sql, params or ())
             return cur.fetchall()
+
 
 def execute(sql, params=None):
     with connection() as conn:
@@ -47,8 +127,13 @@ def execute(sql, params=None):
             cur.execute(sql, params or ())
             return cur.lastrowid
 
+
 def test_connection():
-    return fetch_one("SELECT VERSION() AS version, DATABASE() AS db_name")
+    return fetch_one("""
+        SELECT
+            VERSION() AS version,
+            DATABASE() AS db_name
+    """)
 
 def get_categories():
     return fetch_all("""
