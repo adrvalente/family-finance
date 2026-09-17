@@ -478,8 +478,13 @@ def get_income_history_monthly(household_id, limit_months=12):
             SUM(amount) AS total
         FROM income_occurrences
         WHERE household_id=%s AND is_active=1
-        GROUP BY YEAR(occurrence_date), MONTH(occurrence_date)
-        ORDER BY YEAR(occurrence_date) DESC, MONTH(occurrence_date) DESC
+        GROUP BY
+            DATE_FORMAT(occurrence_date, '%%Y-%%m'),
+            YEAR(occurrence_date),
+            MONTH(occurrence_date)
+        ORDER BY
+            year_num DESC,
+            month_num DESC
         LIMIT %s
     """, (household_id, limit_months))
 
