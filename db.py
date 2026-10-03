@@ -4782,6 +4782,122 @@ def calculate_challenge_progress(challenge,household_id):
     return {'spent':round(spent,2),'target':round(target,2),'remaining':round(remaining,2),'progress_pct':round(progress,1)}
 
 
+
+# ==========================================================
+# FAMILY FINANCE V3.4
+# Definições & Navegação Modular
+# ==========================================================
+
+def ensure_navigation_settings_schema():
+    """
+    Garante as estruturas mínimas da V3.4.
+
+    - Página inicial: preferência individual por utilizador.
+    - Módulos: configuração partilhada pelo agregado familiar.
+    """
+    execute("""
+        CREATE TABLE IF NOT EXISTS user_navigation_preferences (
+            user_id INT NOT NULL,
+            start_page VARCHAR(80) NOT NULL DEFAULT 'Executivo',
+            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+                ON UPDATE CURRENT_TIMESTAMP,
+            PRIMARY KEY (user_id)
+        )
+    """)
+
+    execute("""
+        CREATE TABLE IF NOT EXISTS household_navigation_modules (
+            household_id INT NOT NULL,
+            module_key VARCHAR(80) NOT NULL,
+            is_enabled TINYINT(1) NOT NULL DEFAULT 1,
+            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+                ON UPDATE CURRENT_TIMESTAMP,
+            PRIMARY KEY (household_id, module_key)
+        )
+    """)
+
+
+def get_user_start_page(user_id):
+    ensure_navigation_settings_schema()
+    row = fetch_one("""
+        SELECT start_page
+        FROM user_navigation_preferences
+        WHERE user_id=%s
+        LIMIT 1
+    """, (user_id,))
+    return row["start_page"] if row and row.get("start_page") else "Executivo"
+
+
+def save_user_start_page(user_id, start_page):
+    ensure_navigation_settings_schema()
+    existing = fetch_one("""
+        SELECT user_id
+        FROM user_navigation_preferences
+        WHERE user_id=%s
+        LIMIT 1
+    """, (user_id,))
+
+    if existing:
+        execute("""
+            UPDATE user_navigation_preferences
+            SET start_page=%s, updated_at=NOW()
+            WHERE user_id=%s
+        """, (start_page, user_id))
+    else:
+        execute("""
+            INSERT INTO user_navigation_preferences(user_id, start_page)
+            VALUES(%s,%s)
+        """, (user_id, start_page))
+
+
+def get_household_navigation_modules(household_id):
+    ensure_navigation_settings_schema()
+    if not household_id:
+        return {}
+
+    rows = fetch_all("""
+        SELECT module_key, is_enabled
+        FROM household_navigation_modules
+        WHERE household_id=%s
+    """, (household_id,))
+
+    return {
+        row["module_key"]: bool(row["is_enabled"])
+        for row in rows
+    }
+
+
+def save_household_navigation_modules(household_id, modules):
+    ensure_navigation_settings_schema()
+    if not household_id:
+        return
+
+    for module_key, enabled in modules.items():
+        existing = fetch_one("""
+            SELECT household_id
+            FROM household_navigation_modules
+            WHERE household_id=%s AND module_key=%s
+            LIMIT 1
+        """, (household_id, module_key))
+
+        if existing:
+            execute("""
+                UPDATE household_navigation_modules
+                SET is_enabled=%s, updated_at=NOW()
+                WHERE household_id=%s AND module_key=%s
+            """, (1 if enabled else 0, household_id, module_key))
+        else:
+            execute("""
+                INSERT INTO household_navigation_modules(
+                    household_id, module_key, is_enabled
+                )
+                VALUES(%s,%s,%s)
+            """, (
+                household_id,
+                module_key,
+                1 if enabled else 0
+            ))
+
 # V2.9 — funções mantidas num módulo separado para preservar o db.py corrigido
 from smart_finance import (
     detect_financial_habits, get_smart_notification_settings,

@@ -45,7 +45,9 @@ from db import (
     compare_service_offers, compare_service_offers_v24, create_household_service, create_household_service_v25, create_market_offer, create_market_provider, create_market_source, delete_household_service, delete_market_offer, delete_market_source, delete_scenario_preset, detect_expense_anomalies, get_annual_savings_projection, get_budget_deviation_forecast, get_calendar_events, get_cut_recommendations, get_financial_forecast, get_financial_risk_score, get_forecast_alerts, get_goal_projection, get_item_category_history, get_learning_rules_for_extractor, get_document_service_link, get_household_primary_email, get_market_freshness_summary, get_market_savings_summary, get_multi_month_forecast, get_recurring_expenses_for_scenarios, get_scenario_presets, get_upcoming_commitments, list_household_service_price_history, list_household_services, list_market_alerts, list_notification_settings, list_market_offer_history, list_market_offers, list_market_providers, list_market_sources, list_risk_snapshots, list_service_alerts, list_unlinked_service_documents, learn_document_correction, list_budgets, list_document_items, list_saving_goals, replace_document_items, save_auto_create_settings, create_saving_goal, delete_saving_goal, link_document_to_service, queue_household_alert_emails, refresh_contract_alerts, refresh_market_alerts, refresh_price_increase_alerts, save_document_extraction, save_document_extraction_v17, save_document_items_metadata, save_document_v18_intelligence, save_risk_snapshot, save_notification_settings, suggest_document_service_link, update_household_service, update_household_service_v25, update_market_alert_status, update_market_source, update_service_alert_status, update_market_offer, update_market_provider, save_scenario_preset, simulate_expense_reduction, set_income_active, set_user_active, suggest_budget_from_history, test_connection, update_document_hash, update_document_item, update_document_link, update_saving_goal, upsert_budget,
     update_document_notes, update_document_processing, mark_document_ocr_error,
     detect_financial_habits, get_smart_notification_settings, list_financial_habit_snapshots, list_smart_financial_alerts, queue_smart_alert_emails, refresh_smart_financial_alerts, save_financial_habit_snapshot, save_smart_notification_settings, update_smart_financial_alert_status,
-    update_expense, update_income, build_monthly_financial_narrative, calculate_monthly_plan, calculate_challenge_progress, calculate_switch_decision, create_savings_challenge, get_monthly_financial_plan, get_recommended_category_limits, get_weekly_spending_status, list_savings_challenges, save_monthly_financial_plan, update_savings_challenge_status, generate_next_month_actions, get_monthly_financial_brief, list_monthly_financial_briefs, save_monthly_financial_brief, extract_contract_terms_from_document, get_contract_intelligence, get_financial_action_priorities, list_switch_decisions, save_contract_intelligence
+    update_expense, update_income, build_monthly_financial_narrative, calculate_monthly_plan, calculate_challenge_progress, calculate_switch_decision, create_savings_challenge, get_monthly_financial_plan, get_recommended_category_limits, get_weekly_spending_status, list_savings_challenges, save_monthly_financial_plan, update_savings_challenge_status, generate_next_month_actions, get_monthly_financial_brief, list_monthly_financial_briefs, save_monthly_financial_brief, extract_contract_terms_from_document, get_contract_intelligence, get_financial_action_priorities, list_switch_decisions, save_contract_intelligence,
+    get_user_start_page, save_user_start_page,
+    get_household_navigation_modules, save_household_navigation_modules
 )
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -301,7 +303,7 @@ def page_login():
         "As finanças da família, num só lugar."
     )
 
-    st.caption("V3.3.3 — Cloud Stabilization")
+    st.caption("V3.4 — Definições & Navegação Modular")
 
     c1, c2, c3 = st.columns([1, 1.2, 1])
 
@@ -338,27 +340,136 @@ def page_login():
             else:
                 st.error(err)
 
+# ==========================================================
+# FAMILY FINANCE V3.4
+# Definições & Navegação Modular
+# ==========================================================
+
+CORE_NAVIGATION_PAGES = ["Executivo", "Dashboard", "Definições"]
+
+OPTIONAL_NAVIGATION_MODULES = [
+    "Ações",
+    "Rendimentos",
+    "Despesas",
+    "Documentos",
+    "Orçamentos",
+    "Planeamento",
+    "Calendário",
+    "Cenários",
+    "Risco",
+    "Mercado",
+    "Contratos",
+    "Assistente",
+    "Plano",
+    "Hábitos",
+    "Notificações",
+    "Metas",
+]
+
+ADMIN_NAVIGATION_PAGES = ["Utilizadores", "Agregados", "Sistema"]
+
+
+def get_available_navigation_pages():
+    """
+    Constrói a navegação efetiva da sessão.
+
+    Os módulos opcionais podem ser ocultados por agregado.
+    Executivo, Dashboard e Definições são Core e nunca podem ser
+    desativados. O meu perfil e as páginas administrativas são
+    utilitários e não fazem parte do sistema de módulos.
+    """
+    u = st.session_state.user
+    household_id = u.get("household_id")
+
+    module_settings = (
+        get_household_navigation_modules(household_id)
+        if household_id else {}
+    )
+
+    pages = ["Executivo", "Dashboard"]
+
+    for module_name in OPTIONAL_NAVIGATION_MODULES:
+        if module_settings.get(module_name, True):
+            pages.append(module_name)
+
+    pages += ["Definições", "O meu perfil"]
+
+    if is_admin():
+        pages += ADMIN_NAVIGATION_PAGES
+
+    return pages
+
+
+def get_safe_start_page(available_pages):
+    """
+    Aplica fallback automático quando a página inicial guardada
+    deixou de estar disponível.
+    """
+    u = st.session_state.user
+
+    try:
+        preferred = get_user_start_page(u["id"])
+    except Exception:
+        preferred = "Executivo"
+
+    if preferred in available_pages:
+        return preferred
+
+    if "Executivo" in available_pages:
+        return "Executivo"
+
+    if "Dashboard" in available_pages:
+        return "Dashboard"
+
+    return available_pages[0]
+
+
 def sidebar():
     refresh_session_user()
     u = st.session_state.user
+    pages = get_available_navigation_pages()
+
+    # A página inicial só é aplicada uma vez por sessão autenticada.
+    if not st.session_state.get("navigation_initialized", False):
+        st.session_state["navigation_page"] = get_safe_start_page(pages)
+        st.session_state["navigation_initialized"] = True
+
+    # Proteção adicional caso um módulo tenha acabado de ser desativado.
+    if st.session_state.get("navigation_page") not in pages:
+        st.session_state["navigation_page"] = get_safe_start_page(pages)
+
     with st.sidebar:
         render_sidebar_brand()
         st.write(f"**{u['full_name']}**")
         st.caption(f"@{u['username']}")
-        st.write("**Perfil:** " + ("Administrador" if u["role"]=="admin" else "Utilizador"))
+        st.write(
+            "**Perfil:** "
+            + ("Administrador" if u["role"] == "admin" else "Utilizador")
+        )
+
         if u.get("household_name"):
             st.write(f"**Agregado:** {u['household_name']}")
+
         st.divider()
-        pages = ["Executivo","Ações","Dashboard","Rendimentos","Despesas","Documentos","Orçamentos","Planeamento","Calendário","Cenários","Risco","Mercado","Contratos","Assistente","Plano","Hábitos","Notificações","Metas","O meu perfil"]
-        if is_admin():
-            pages += ["Utilizadores","Agregados","Sistema"]
-        page = st.radio("Navegação",pages)
+
+        page = st.radio(
+            "Navegação",
+            pages,
+            key="navigation_page"
+        )
+
         st.divider()
-        if st.button("Terminar sessão",use_container_width=True):
+
+        if st.button("Terminar sessão", use_container_width=True):
+            st.session_state.pop("navigation_initialized", None)
+            st.session_state.pop("navigation_page", None)
             logout()
             st.rerun()
-        st.caption("Family Finance V3.3.3")
+
+        st.caption("Family Finance V3.4")
+
     return page
+
 
 def require_household():
     require_login()
@@ -374,7 +485,7 @@ def require_household():
 def page_executive_dashboard():
     household_id = require_household()
     st.title("🏠 Dashboard Executivo Familiar")
-    st.caption("V3.3.3 — Cloud Stabilization + Family Finance Design System")
+    st.caption("V3.4 — Definições & Navegação Modular + Family Finance Design System")
 
     today = date.today()
     c1,c2,c3 = st.columns([1,1,1])
@@ -432,12 +543,11 @@ def page_executive_dashboard():
 
     st.write(
         build_executive_summary(
-           household_id,
+            household_id,
             year,
-            month,
-            data=data
-            )
-    )       
+            month
+        )
+    )
 
     st.divider()
     st.subheader("Componentes do score")
@@ -4715,6 +4825,130 @@ def page_notifications():
                     )
 
 
+
+def page_settings():
+    require_login()
+    refresh_session_user()
+
+    u = st.session_state.user
+    household_id = u.get("household_id")
+
+    st.title("⚙️ Definições")
+    st.caption("V3.4 — Preferências pessoais e navegação modular do agregado.")
+
+    tab_general, tab_modules = st.tabs(["Geral", "Módulos"])
+
+    with tab_general:
+        st.subheader("Página inicial após login")
+        st.write(
+            "Escolhe a página que deve abrir automaticamente "
+            "quando iniciares uma nova sessão."
+        )
+
+        available_pages = get_available_navigation_pages()
+        current_start = get_safe_start_page(available_pages)
+
+        start_page = st.selectbox(
+            "Página inicial",
+            available_pages,
+            index=(
+                available_pages.index(current_start)
+                if current_start in available_pages else 0
+            ),
+            key="settings_start_page"
+        )
+
+        if st.button(
+            "Guardar página inicial",
+            use_container_width=True,
+            key="save_start_page"
+        ):
+            save_user_start_page(u["id"], start_page)
+            st.success("Página inicial atualizada.")
+
+        st.info(
+            "Esta preferência é individual: cada utilizador pode "
+            "escolher a sua própria página inicial."
+        )
+
+    with tab_modules:
+        st.subheader("Módulos de navegação")
+
+        if not household_id:
+            st.warning(
+                "O utilizador ainda não está associado a um agregado familiar. "
+                "A configuração dos módulos fica disponível após essa associação."
+            )
+        else:
+            st.write(
+                "Escolhe os módulos que devem aparecer na navegação deste agregado. "
+                "Desativar um módulo apenas o oculta do menu; os dados e o código "
+                "continuam preservados."
+            )
+
+            st.markdown("**Módulos Core**")
+            c1, c2, c3 = st.columns(3)
+            with c1:
+                st.checkbox("Executivo", value=True, disabled=True)
+            with c2:
+                st.checkbox("Dashboard", value=True, disabled=True)
+            with c3:
+                st.checkbox("Definições", value=True, disabled=True)
+
+            st.caption(
+                "Os módulos Core são essenciais e não podem ser desativados."
+            )
+
+            st.divider()
+            st.markdown("**Módulos opcionais**")
+
+            saved_modules = get_household_navigation_modules(household_id)
+            selected_modules = {}
+
+            cols = st.columns(2)
+            for idx, module_name in enumerate(OPTIONAL_NAVIGATION_MODULES):
+                with cols[idx % 2]:
+                    selected_modules[module_name] = st.checkbox(
+                        module_name,
+                        value=saved_modules.get(module_name, True),
+                        key=f"module_{module_name}"
+                    )
+
+            if st.button(
+                "Guardar módulos",
+                type="primary",
+                use_container_width=True,
+                key="save_navigation_modules"
+            ):
+                save_household_navigation_modules(
+                    household_id,
+                    selected_modules
+                )
+
+                # Se a página inicial ficou indisponível, corrige-a já.
+                new_available = ["Executivo", "Dashboard"]
+                new_available += [
+                    name for name in OPTIONAL_NAVIGATION_MODULES
+                    if selected_modules.get(name, True)
+                ]
+                new_available += ["Definições", "O meu perfil"]
+
+                if is_admin():
+                    new_available += ADMIN_NAVIGATION_PAGES
+
+                preferred = get_user_start_page(u["id"])
+                if preferred not in new_available:
+                    save_user_start_page(u["id"], "Executivo")
+
+                st.success("Módulos de navegação atualizados.")
+                st.rerun()
+
+            st.info(
+                "Esta configuração é partilhada pelo agregado familiar. "
+                "Os módulos ocultos deixam de aparecer no menu para os membros "
+                "desse agregado."
+            )
+
 def page_profile():
     require_login()
     u = st.session_state.user
@@ -4944,7 +5178,7 @@ def page_system():
 
             st.code(
                 f"""Aplicação: {APP_NAME}
-Versão: 3.3.3
+Versão: 3.4
 Ambiente da aplicação: {APP_ENV}
 Ambiente da base de dados: {environment_label}
 Motor da base de dados: {database_engine}
@@ -4969,7 +5203,7 @@ Data/Hora: {datetime.now().strftime("%d/%m/%Y %H:%M:%S")}"""
 
 
 # ==========================================================
-# FAMILY FINANCE V3.3.3
+# FAMILY FINANCE V3.4
 # Router principal da aplicação
 # ==========================================================
 
@@ -4998,6 +5232,7 @@ else:
         "Hábitos": page_financial_habits,
         "Notificações": page_notifications,
         "Metas": page_goals,
+        "Definições": page_settings,
         "O meu perfil": page_profile,
         "Utilizadores": page_users,
         "Agregados": page_households,
