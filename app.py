@@ -54,112 +54,54 @@ load_dotenv(os.path.join(BASE_DIR,".env"))
 APP_NAME = os.getenv("APP_NAME","Painel de Despesas Familiar")
 APP_ENV = os.getenv("APP_ENV","development")
 
-st.set_page_config(page_title="Family Finance",page_icon="💶",layout="wide")
+st.set_page_config(page_title="Family Finance",page_icon="💶",layout="wide",initial_sidebar_state="expanded")
 apply_family_finance_theme()
 
-# ==========================================================
-# FAMILY FINANCE V3.3.3 — CLOUD LAYOUT FIX
-# Remove o chrome superior do Streamlit e mantém o controlo
-# da sidebar visível num botão circular.
-# ==========================================================
 def apply_cloud_layout_fix():
+    """Ajustes de layout para Streamlit 1.63.x sem depender do controlo do header."""
     st.markdown(
-        r"""
+        """
         <style>
-        /* --------------------------------------------------
-           Streamlit top chrome
-           -------------------------------------------------- */
+        /* Remove o chrome superior do Streamlit. O controlo da sidebar
+           vive dentro de stSidebar no Streamlit 1.63, por isso o header
+           pode ser escondido em segurança. */
         [data-testid="stHeader"] {
-            background: transparent !important;
-            height: 0 !important;
-            min-height: 0 !important;
-            box-shadow: none !important;
-            border: 0 !important;
-            overflow: visible !important;
+            display: none !important;
         }
-
         [data-testid="stToolbar"],
         [data-testid="stDecoration"],
         [data-testid="stStatusWidget"],
-        [data-testid="stAppDeployButton"],
         #MainMenu {
             display: none !important;
         }
 
-        /* Evita a faixa/espaço branco deixado pelo header. */
+        /* Retira o espaço reservado no topo. */
         [data-testid="stAppViewContainer"] > .main,
         [data-testid="stMain"] {
             padding-top: 0 !important;
         }
-
         .block-container {
             padding-top: 1.35rem !important;
         }
 
-        /* --------------------------------------------------
-           Botão para ABRIR a sidebar quando está recolhida
-           -------------------------------------------------- */
-        [data-testid="stSidebarCollapsedControl"] {
-            position: fixed !important;
-            top: 16px !important;
-            left: 16px !important;
-            width: 50px !important;
-            height: 50px !important;
-            min-width: 50px !important;
-            min-height: 50px !important;
-            padding: 0 !important;
-            margin: 0 !important;
-            border-radius: 999px !important;
-            background: #0F3557 !important;
-            border: 1px solid rgba(255, 255, 255, .24) !important;
-            box-shadow: 0 8px 22px rgba(15, 53, 87, .28) !important;
-            display: flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-            z-index: 1000000 !important;
+        /* Sidebar aberta. */
+        [data-testid="stSidebar"][aria-expanded="true"] {
+            border-right: 1px solid rgba(15, 53, 87, .10) !important;
+        }
+
+        /* Botão nativo de fechar: circular e sempre perceptível. */
+        [data-testid="stSidebar"][aria-expanded="true"]
+        [data-testid="stSidebarCollapseButton"] {
             opacity: 1 !important;
             visibility: visible !important;
-            transition: transform .18s ease, box-shadow .18s ease, background .18s ease !important;
+            pointer-events: auto !important;
         }
-
-        [data-testid="stSidebarCollapsedControl"]:hover {
-            transform: scale(1.07) !important;
-            background: #174F7A !important;
-            box-shadow: 0 10px 28px rgba(15, 53, 87, .36) !important;
-        }
-
-        [data-testid="stSidebarCollapsedControl"] svg {
-            width: 24px !important;
-            height: 24px !important;
-            color: #FFFFFF !important;
-            fill: #FFFFFF !important;
-            stroke: #FFFFFF !important;
-        }
-
-        /* Compatibilidade com versões do Streamlit que usam
-           um button dentro do collapsed control. */
-        [data-testid="stSidebarCollapsedControl"] button {
-            width: 50px !important;
-            height: 50px !important;
-            padding: 0 !important;
-            border: 0 !important;
-            border-radius: 999px !important;
-            background: transparent !important;
-            display: flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-        }
-
-        /* --------------------------------------------------
-           Botão para FECHAR a sidebar quando está aberta
-           -------------------------------------------------- */
-        [data-testid="stSidebarCollapseButton"] button,
-        [data-testid="stSidebar"] [data-testid="stBaseButton-headerNoPadding"] {
-            width: 38px !important;
-            height: 38px !important;
-            min-width: 38px !important;
-            min-height: 38px !important;
-            padding: 0 !important;
+        [data-testid="stSidebar"][aria-expanded="true"]
+        [data-testid="stSidebarCollapseButton"] button {
+            width: 40px !important;
+            height: 40px !important;
+            min-width: 40px !important;
+            min-height: 40px !important;
             border-radius: 999px !important;
             background: rgba(15, 53, 87, .10) !important;
             border: 1px solid rgba(15, 53, 87, .14) !important;
@@ -167,45 +109,157 @@ def apply_cloud_layout_fix():
             align-items: center !important;
             justify-content: center !important;
         }
-
-        [data-testid="stSidebarCollapseButton"] button:hover,
-        [data-testid="stSidebar"] [data-testid="stBaseButton-headerNoPadding"]:hover {
-            background: rgba(15, 53, 87, .18) !important;
+        /* Ícone explícito: sidebar aberta = « (fechar para a esquerda). */
+        [data-testid="stSidebar"][aria-expanded="true"]
+        [data-testid="stSidebarCollapseButton"] button > * {
+            display: none !important;
+        }
+        [data-testid="stSidebar"][aria-expanded="true"]
+        [data-testid="stSidebarCollapseButton"] button::after {
+            content: "«" !important;
+            display: block !important;
+            font-size: 25px !important;
+            line-height: 1 !important;
+            font-weight: 600 !important;
+            color: #0F3557 !important;
         }
 
-        [data-testid="stSidebar"] {
-            border-right: 1px solid rgba(15, 53, 87, .10) !important;
+        /* ----------------------------------------------------------
+           Sidebar recolhida — Streamlit 1.63
+
+           O Streamlit desloca todo o stSidebar para fora do ecrã.
+           Como o botão nativo está DENTRO desse elemento, também
+           desaparece. Em vez de procurar um botão externo que já não
+           existe, mantemos apenas uma pequena zona transparente de
+           68 px e escondemos todo o conteúdo, exceto o botão nativo.
+           ---------------------------------------------------------- */
+        [data-testid="stSidebar"][aria-expanded="false"] {
+            transform: translateX(0) !important;
+            left: 0 !important;
+            width: 68px !important;
+            min-width: 68px !important;
+            max-width: 68px !important;
+            background: transparent !important;
+            border: 0 !important;
+            box-shadow: none !important;
+            overflow: visible !important;
+            z-index: 999999 !important;
+        }
+        [data-testid="stSidebar"][aria-expanded="false"]
+        [data-testid="stSidebarContent"] {
+            width: 68px !important;
+            min-width: 68px !important;
+            max-width: 68px !important;
+            overflow: visible !important;
+            background: transparent !important;
+        }
+        [data-testid="stSidebar"][aria-expanded="false"]
+        [data-testid="stSidebarUserContent"],
+        [data-testid="stSidebar"][aria-expanded="false"]
+        [data-testid="stSidebarResizeHandle"],
+        [data-testid="stSidebar"][aria-expanded="false"]
+        [data-testid="stLogoSpacer"],
+        [data-testid="stSidebar"][aria-expanded="false"]
+        [data-testid="stSidebarLogo"] {
+            display: none !important;
+        }
+        [data-testid="stSidebar"][aria-expanded="false"]
+        [data-testid="stSidebarHeader"] {
+            display: block !important;
+            position: fixed !important;
+            top: 14px !important;
+            left: 14px !important;
+            width: 52px !important;
+            height: 52px !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            overflow: visible !important;
+            background: transparent !important;
+        }
+        [data-testid="stSidebar"][aria-expanded="false"]
+        [data-testid="stSidebarCollapseButton"] {
+            display: flex !important;
+            position: fixed !important;
+            top: 14px !important;
+            left: 14px !important;
+            width: 52px !important;
+            height: 52px !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            opacity: 1 !important;
+            visibility: visible !important;
+            pointer-events: auto !important;
+            z-index: 1000000 !important;
+        }
+        [data-testid="stSidebar"][aria-expanded="false"]
+        [data-testid="stSidebarCollapseButton"] button {
+            width: 52px !important;
+            height: 52px !important;
+            min-width: 52px !important;
+            min-height: 52px !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            border-radius: 999px !important;
+            background: #0F3557 !important;
+            border: 1px solid rgba(255,255,255,.24) !important;
+            box-shadow: 0 8px 22px rgba(15,53,87,.28) !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            opacity: 1 !important;
+            visibility: visible !important;
+            pointer-events: auto !important;
+        }
+        [data-testid="stSidebar"][aria-expanded="false"]
+        [data-testid="stSidebarCollapseButton"] button:hover {
+            transform: scale(1.07) !important;
+            background: #174F7A !important;
+            box-shadow: 0 10px 28px rgba(15,53,87,.36) !important;
+        }
+        /* Ícone explícito: sidebar fechada = » (abrir para a direita).
+           Não dependemos da orientação do SVG interno do Streamlit. */
+        [data-testid="stSidebar"][aria-expanded="false"]
+        [data-testid="stSidebarCollapseButton"] button > * {
+            display: none !important;
+        }
+        [data-testid="stSidebar"][aria-expanded="false"]
+        [data-testid="stSidebarCollapseButton"] button::after {
+            content: "»" !important;
+            display: block !important;
+            font-size: 30px !important;
+            line-height: 1 !important;
+            font-weight: 600 !important;
+            color: #FFFFFF !important;
+            transform: translateY(-1px) !important;
         }
 
-        /* --------------------------------------------------
-           Mobile / tablet
-           -------------------------------------------------- */
         @media (max-width: 768px) {
             .block-container {
                 padding-top: 1rem !important;
                 padding-left: 1rem !important;
                 padding-right: 1rem !important;
             }
-
-            [data-testid="stSidebarCollapsedControl"] {
-                top: 12px !important;
-                left: 12px !important;
-                width: 46px !important;
-                height: 46px !important;
-                min-width: 46px !important;
-                min-height: 46px !important;
+            [data-testid="stSidebar"][aria-expanded="false"]
+            [data-testid="stSidebarHeader"],
+            [data-testid="stSidebar"][aria-expanded="false"]
+            [data-testid="stSidebarCollapseButton"] {
+                top: 10px !important;
+                left: 10px !important;
+                width: 48px !important;
+                height: 48px !important;
             }
-
-            [data-testid="stSidebarCollapsedControl"] button {
-                width: 46px !important;
-                height: 46px !important;
+            [data-testid="stSidebar"][aria-expanded="false"]
+            [data-testid="stSidebarCollapseButton"] button {
+                width: 48px !important;
+                height: 48px !important;
+                min-width: 48px !important;
+                min-height: 48px !important;
             }
         }
         </style>
         """,
         unsafe_allow_html=True,
     )
-
 
 apply_cloud_layout_fix()
 init_session()
