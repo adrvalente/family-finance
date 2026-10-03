@@ -56,6 +56,158 @@ APP_ENV = os.getenv("APP_ENV","development")
 
 st.set_page_config(page_title="Family Finance",page_icon="💶",layout="wide")
 apply_family_finance_theme()
+
+# ==========================================================
+# FAMILY FINANCE V3.3.3 — CLOUD LAYOUT FIX
+# Remove o chrome superior do Streamlit e mantém o controlo
+# da sidebar visível num botão circular.
+# ==========================================================
+def apply_cloud_layout_fix():
+    st.markdown(
+        r"""
+        <style>
+        /* --------------------------------------------------
+           Streamlit top chrome
+           -------------------------------------------------- */
+        [data-testid="stHeader"] {
+            background: transparent !important;
+            height: 0 !important;
+            min-height: 0 !important;
+            box-shadow: none !important;
+            border: 0 !important;
+            overflow: visible !important;
+        }
+
+        [data-testid="stToolbar"],
+        [data-testid="stDecoration"],
+        [data-testid="stStatusWidget"],
+        [data-testid="stAppDeployButton"],
+        #MainMenu {
+            display: none !important;
+        }
+
+        /* Evita a faixa/espaço branco deixado pelo header. */
+        [data-testid="stAppViewContainer"] > .main,
+        [data-testid="stMain"] {
+            padding-top: 0 !important;
+        }
+
+        .block-container {
+            padding-top: 1.35rem !important;
+        }
+
+        /* --------------------------------------------------
+           Botão para ABRIR a sidebar quando está recolhida
+           -------------------------------------------------- */
+        [data-testid="stSidebarCollapsedControl"] {
+            position: fixed !important;
+            top: 16px !important;
+            left: 16px !important;
+            width: 50px !important;
+            height: 50px !important;
+            min-width: 50px !important;
+            min-height: 50px !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            border-radius: 999px !important;
+            background: #0F3557 !important;
+            border: 1px solid rgba(255, 255, 255, .24) !important;
+            box-shadow: 0 8px 22px rgba(15, 53, 87, .28) !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            z-index: 1000000 !important;
+            opacity: 1 !important;
+            visibility: visible !important;
+            transition: transform .18s ease, box-shadow .18s ease, background .18s ease !important;
+        }
+
+        [data-testid="stSidebarCollapsedControl"]:hover {
+            transform: scale(1.07) !important;
+            background: #174F7A !important;
+            box-shadow: 0 10px 28px rgba(15, 53, 87, .36) !important;
+        }
+
+        [data-testid="stSidebarCollapsedControl"] svg {
+            width: 24px !important;
+            height: 24px !important;
+            color: #FFFFFF !important;
+            fill: #FFFFFF !important;
+            stroke: #FFFFFF !important;
+        }
+
+        /* Compatibilidade com versões do Streamlit que usam
+           um button dentro do collapsed control. */
+        [data-testid="stSidebarCollapsedControl"] button {
+            width: 50px !important;
+            height: 50px !important;
+            padding: 0 !important;
+            border: 0 !important;
+            border-radius: 999px !important;
+            background: transparent !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+        }
+
+        /* --------------------------------------------------
+           Botão para FECHAR a sidebar quando está aberta
+           -------------------------------------------------- */
+        [data-testid="stSidebarCollapseButton"] button,
+        [data-testid="stSidebar"] [data-testid="stBaseButton-headerNoPadding"] {
+            width: 38px !important;
+            height: 38px !important;
+            min-width: 38px !important;
+            min-height: 38px !important;
+            padding: 0 !important;
+            border-radius: 999px !important;
+            background: rgba(15, 53, 87, .10) !important;
+            border: 1px solid rgba(15, 53, 87, .14) !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+        }
+
+        [data-testid="stSidebarCollapseButton"] button:hover,
+        [data-testid="stSidebar"] [data-testid="stBaseButton-headerNoPadding"]:hover {
+            background: rgba(15, 53, 87, .18) !important;
+        }
+
+        [data-testid="stSidebar"] {
+            border-right: 1px solid rgba(15, 53, 87, .10) !important;
+        }
+
+        /* --------------------------------------------------
+           Mobile / tablet
+           -------------------------------------------------- */
+        @media (max-width: 768px) {
+            .block-container {
+                padding-top: 1rem !important;
+                padding-left: 1rem !important;
+                padding-right: 1rem !important;
+            }
+
+            [data-testid="stSidebarCollapsedControl"] {
+                top: 12px !important;
+                left: 12px !important;
+                width: 46px !important;
+                height: 46px !important;
+                min-width: 46px !important;
+                min-height: 46px !important;
+            }
+
+            [data-testid="stSidebarCollapsedControl"] button {
+                width: 46px !important;
+                height: 46px !important;
+            }
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+apply_cloud_layout_fix()
 init_session()
 
 MONTHS_PT = {
@@ -224,7 +376,14 @@ def page_executive_dashboard():
     else:
         st.error("Situação crítica. O foco deve ser liquidez, despesas e compromissos fixos.")
 
-    st.write(build_executive_summary(household_id,year,month))
+    st.write(
+        build_executive_summary(
+           household_id,
+            year,
+            month,
+            data=data
+            )
+    )       
 
     st.divider()
     st.subheader("Componentes do score")
