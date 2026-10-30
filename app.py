@@ -7,6 +7,7 @@ import altair as alt
 import streamlit as st
 from ui.theme import apply_family_finance_theme, render_brand_header, render_sidebar_brand, score_card, component_card, COLORS
 from dotenv import load_dotenv
+from currency_page import page_currency_converter
 
 from document_extractor import extract_document_text, extract_fields, extract_line_items, file_sha256
 
@@ -111,7 +112,7 @@ def sidebar():
         if u.get("household_name"):
             st.write(f"**Agregado:** {u['household_name']}")
         st.divider()
-        pages = ["Executivo","Ações","Dashboard","Rendimentos","Despesas","Documentos","Orçamentos","Planeamento","Calendário","Cenários","Risco","Mercado","Contratos","Assistente","Plano","Hábitos","Notificações","Metas","O meu perfil"]
+        pages = ["Executivo","Ações","Dashboard","Rendimentos","Despesas","Documentos","Orçamentos","Planeamento","Calendário","Cenários","Risco","Mercado","💱 Conversor de Moedas","Contratos","Assistente","Plano","Hábitos","Notificações","Metas","O meu perfil"]
         if is_admin():
             pages += ["Utilizadores","Agregados","Sistema"]
         page = st.radio("Navegação",pages)
@@ -4636,6 +4637,7 @@ else:
         "Cenários":page_scenarios,
         "Risco":page_risk,
         "Mercado":page_market,
+        "💱 Conversor de Moedas":page_currency_converter,
         "Contratos":page_contracts,
         "Assistente":page_financial_assistant,
         "Plano":page_financial_plan,
