@@ -6,7 +6,10 @@ from datetime import date, timedelta
 import pymysql
 from dotenv import load_dotenv
 
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+# Localizar a pasta onde está o db.py
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# Carregar as variáveis do ficheiro .env
 load_dotenv(os.path.join(BASE_DIR, ".env"))
 
 def get_config():
