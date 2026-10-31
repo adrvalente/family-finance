@@ -59,6 +59,22 @@ st.set_page_config(page_title="Family Finance",page_icon="💶",layout="wide")
 apply_family_finance_theme()
 init_session()
 
+# ==========================================================
+# Family Finance V3.7 — Preferência global de moeda
+# ==========================================================
+MOEDAS_DISPONIVEIS = {
+    "EUR": "🇪🇺 Euro (EUR)",
+    "USD": "🇺🇸 Dólar Americano (USD)",
+    "GBP": "🇬🇧 Libra Esterlina (GBP)",
+    "CHF": "🇨🇭 Franco Suíço (CHF)",
+    "BRL": "🇧🇷 Real Brasileiro (BRL)",
+}
+MOEDA_PREDEFINIDA = "EUR"
+
+if st.session_state.get("moeda_visualizacao") not in MOEDAS_DISPONIVEIS:
+    st.session_state["moeda_visualizacao"] = MOEDA_PREDEFINIDA
+
+
 MONTHS_PT = {
     1:"Janeiro",2:"Fevereiro",3:"Março",4:"Abril",5:"Maio",6:"Junho",
     7:"Julho",8:"Agosto",9:"Setembro",10:"Outubro",11:"Novembro",12:"Dezembro"
@@ -111,6 +127,16 @@ def sidebar():
         st.write("**Perfil:** " + ("Administrador" if u["role"]=="admin" else "Utilizador"))
         if u.get("household_name"):
             st.write(f"**Agregado:** {u['household_name']}")
+        st.divider()
+        # V3.7 — Seletor global (conversão de valores numa fase posterior)
+        st.markdown("### 🌍 Moeda de visualização")
+        st.selectbox(
+            "Selecionar moeda",
+            options=list(MOEDAS_DISPONIVEIS),
+            format_func=lambda moeda: MOEDAS_DISPONIVEIS[moeda],
+            key="moeda_visualizacao",
+        )
+        st.caption("Os valores originais permanecem guardados em EUR.")
         st.divider()
         pages = ["Executivo","Ações","Dashboard","Rendimentos","Despesas","Documentos","Orçamentos","Planeamento","Calendário","Cenários","Risco","Mercado","💱 Conversor de Moedas","Contratos","Assistente","Plano","Hábitos","Notificações","Metas","O meu perfil"]
         if is_admin():
