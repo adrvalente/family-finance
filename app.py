@@ -1,5 +1,6 @@
 
 import os, platform, uuid, json, re
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from datetime import date, datetime, timedelta
 
 import pandas as pd
@@ -8,6 +9,8 @@ import streamlit as st
 from ui.theme import apply_family_finance_theme, render_brand_header, render_sidebar_brand, score_card, component_card, COLORS
 from dotenv import load_dotenv
 from currency_page import page_currency_converter
+from currency_converter import obter_taxa, CurrencyError
+from currency_repository import obter_ultima_taxa
 
 from document_extractor import extract_document_text, extract_fields, extract_line_items, file_sha256
 
@@ -73,6 +76,49 @@ MOEDA_PREDEFINIDA = "EUR"
 
 if st.session_state.get("moeda_visualizacao") not in MOEDAS_DISPONIVEIS:
     st.session_state["moeda_visualizacao"] = MOEDA_PREDEFINIDA
+
+
+# ==========================================================
+# Family Finance V3.7 — Cotação e formatação global dos KPI
+# ==========================================================
+@st.cache_data(ttl=3600, show_spinner=False)
+def obter_cotacao_visualizacao(moeda):
+    """Consulta EUR/moeda; se a API falhar, tenta a última cotação no Aiven."""
+    if moeda == "EUR":
+        return Decimal("1"), None, "EUR (original)"
+
+    try:
+        info = obter_taxa("EUR", moeda)
+        return Decimal(str(info["rate"])), info.get("date"), "Frankfurter"
+    except CurrencyError:
+        try:
+            registo = obter_ultima_taxa("EUR", moeda)
+        except Exception as erro:
+            raise CurrencyError(
+                f"Não foi possível obter a cotação EUR/{moeda} na API ou no Aiven."
+            ) from erro
+        if not registo:
+            raise CurrencyError(f"Não existe cotação disponível para EUR/{moeda}.")
+        taxa = Decimal(str(registo["taxa"]))
+        if not taxa.is_finite() or taxa <= 0:
+            raise CurrencyError("A última cotação guardada não é válida.")
+        return taxa, str(registo["data_cotacao"]), "Aiven (cotação guardada)"
+
+
+def formatar_valor_moeda(valor, taxa, moeda):
+    """Converte apenas para visualização; não altera os valores na BD."""
+    montante = Decimal(str(valor if valor is not None else 0))
+    convertido = (montante * taxa).quantize(
+        Decimal("0.01"), rounding=ROUND_HALF_UP
+    )
+    # Apresentação consistente em PT-PT: 1 234,56 USD
+    sinal = "-" if convertido < 0 else ""
+    parte_inteira, decimais = f"{abs(convertido):.2f}".split(".")
+    grupos = []
+    while parte_inteira:
+        grupos.insert(0, parte_inteira[-3:])
+        parte_inteira = parte_inteira[:-3]
+    return f"{sinal}{' '.join(grupos)},{decimais} {moeda}"
 
 
 MONTHS_PT = {
@@ -162,6 +208,24 @@ def require_household():
 
 def page_executive_dashboard():
     household_id = require_household()
+    moeda = st.session_state.get("moeda_visualizacao", MOEDA_PREDEFINIDA)
+    try:
+        taxa, data_cotacao, fonte_cotacao = obter_cotacao_visualizacao(moeda)
+    except (CurrencyError, InvalidOperation, ValueError) as erro:
+        st.error(f"Não foi possível obter a cotação para {moeda}: {erro}")
+        st.info("Seleciona EUR na barra lateral ou tenta novamente mais tarde.")
+        st.stop()
+
+    def dinheiro(valor):
+        return formatar_valor_moeda(valor, taxa, moeda)
+
+    if moeda != "EUR":
+        st.caption(
+            f"💱 1 EUR = {taxa} {moeda} · "
+            f"Cotação: {data_cotacao or 'não indicada'} · Fonte: {fonte_cotacao}"
+        )
+        if fonte_cotacao.startswith("Aiven"):
+            st.warning("A API está indisponível. Os valores usam uma cotação guardada no Aiven.")
     st.title("🏠 Dashboard Executivo Familiar")
     st.caption("V3.3.1 — visão global com Family Finance Design System")
 
@@ -312,10 +376,10 @@ def page_executive_dashboard():
     market = data["market"]
     plan = data["plan"]
     m1,m2,m3,m4 = st.columns(4)
-    m1.metric("Saldo do mês",f"{float(s.get('balance') or 0):.2f} €")
-    m2.metric("Meta de poupança",f"{float(plan.get('target_saving') or 0):.2f} €")
-    m3.metric("Teto de despesa",f"{float(plan.get('spend_cap') or 0):.2f} €")
-    m4.metric("Poupança mercado/ano",f"{float(market.get('potential_annual_saving') or 0):.2f} €")
+    m1.metric("Saldo do mês", dinheiro(s.get("balance")))
+    m2.metric("Meta de poupança", dinheiro(plan.get("target_saving")))
+    m3.metric("Teto de despesa", dinheiro(plan.get("spend_cap")))
+    m4.metric("Poupança mercado/ano", dinheiro(market.get("potential_annual_saving")))
 
     left,right = st.columns(2)
     with left:
@@ -334,7 +398,7 @@ def page_executive_dashboard():
     ac1.metric("Ações ativas", action_summary["active_actions"])
     ac2.metric("Em curso", action_summary["in_progress"])
     ac3.metric("Concluídas", action_summary["completed"])
-    ac4.metric("Poupança real", f"{action_summary['realized_saving']:.2f} €")
+    ac4.metric("Poupança real", dinheiro(action_summary["realized_saving"]))
     st.caption(
         f"Oportunidade anual ainda por executar: "
         f"{action_summary['estimated_annual_opportunity']:.2f} €"
